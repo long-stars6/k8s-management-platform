@@ -1,0 +1,49 @@
+import Deployment from '@/pages/deployment.vue';
+import { createRouter, createWebHistory } from 'vue-router';
+import Pods from '@/pages/Pods.vue';
+import Sidebar from '@/pages/saidebar.vue';
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes: [
+    {
+        name: "cluster",
+        path: "/cluster",
+        component: () => import('@/pages/Cluster.vue')
+    },{
+      name: "deployment",
+      path: "/deployment",
+      component: () => import('@/pages/deployment.vue')
+    },{
+      name: "pods",
+      path: "/pods",
+      component: () => import('@/pages/Pods.vue')
+    },{
+      name: "sidebar",
+      path: "/sidebar",
+      component: () => import('@/pages/saidebar.vue')
+    },
+    {
+      name: "cicd",
+      path: "/cicd",
+      component: () => import('@/pages/cicd.vue')
+    },
+    {
+      name: "volumes",
+      path: "/volumes",
+      component: () => import('@/pages/volumes.vue')
+    },
+    {
+      name: "alert",
+      path: "/alert",
+      component: () => import('@/pages/alert.vue')
+    },
+    {
+      name: "logs",
+      path: "/logs",
+      component: () => import('@/pages/logs.vue')
+    }
+  ]
+})
+
+export {router};
