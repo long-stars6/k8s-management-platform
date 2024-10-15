@@ -1,87 +1,83 @@
 <template>
-    <div class="k8s-container">
-     <h1>Kubernetes (K8s)</h1>
-     <p>Kubernetes 是一个开源的容器编排平台，旨在自动化应用程序的部署、扩展和管理。</p>
-     
-     <div class="features">
-       <div class="feature">
-         <h2>容器管理</h2>
-         <p>管理多个容器的部署和扩展，让应用更高效运行。</p>
-       </div>
-       
-       <div class="feature">
-         <h2>监控</h2>
-         <p>监控集群和应用状态，及时发现并解决问题。</p>
-       </div>
-       
-       <div class="feature">
-         <h2>cicd</h2>
-         <p>实现应用的持续集成和持续交付，提高开发效率。</p>
-       </div>
-       
-       <div class="feature">
-         <h2>日志</h2>
-         <p>集中管理日志，方便排查问题。</p>
-       </div>
-     </div>
-   </div>
-   
-   </template>
-   
-   <script setup lang="ts">
-    import { RouterLink } from 'vue-router'
-    
-   </script>
-   
-   <style scoped>
-   .k8s-container {
-     background-color: #1E1E2F;
-     color: #FFFFFF;
-     padding: 20px;
-     border-radius: 10px;
-     max-width: 800px;
-     margin: auto;
-     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-   }
-   
-   .k8s-container h1 {
-     text-align: center;
-     font-size: 2.5em;
-     margin-bottom: 20px;
-   }
-   
-   .k8s-container p {
-     font-size: 1.1em;
-     line-height: 1.5;
-     margin-bottom: 30px;
-   }
-   
-   .features {
-     display: grid;
-     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-     gap: 20px;
-   }
-   
-   .feature {
-     background-color: #2D2D3C;
-     padding: 15px;
-     border-radius: 8px;
-     text-align: center;
-     transition: transform 0.2s;
-   }
-   
-   .feature:hover {
-     transform: scale(1.05);
-   }
-   
-   .feature h2 {
-     font-size: 1.5em;
-     margin-bottom: 10px;
-   }
-   
-   .feature p {
-     font-size: 1em;
-     line-height: 1.4;
-   }
-   
-   </style>
+  <div id="main" ref="chartRef" style="width: 600px; height: 400px;"></div>
+</template>
+
+<script lang="ts" setup>
+import { defineComponent, ref, onMounted } from 'vue';
+import * as echarts from 'echarts';
+import axios from 'axios';
+
+const chartRef = ref<HTMLDivElement | null>(null);
+const myChart = ref<echarts.ECharts | null>(null);
+
+const initChart = () => {
+  if (chartRef.value) {
+        myChart.value = echarts.init(chartRef.value);
+        const option: echarts.EChartsOption = {
+          tooltip: {
+            formatter: '{a} <br/>{b} : {c}'
+          },
+          series: [
+            {
+              name: 'Pods',
+              type: 'gauge',
+              progress: {
+                show: true
+              },
+              axisLine: {
+                lineStyle: {
+                  color: [[0.3, '#67e0e3'], [0.7, '#37a2da'], [1, '#fd666d']],
+                  width: 30,
+                }
+              },
+              detail: {
+                valueAnimation: true,
+                formatter: '{value}'
+              },
+              data: [
+                {
+                  value: 0,
+                  name: 'Pod 数量'
+                }
+              ]
+            }
+          ]
+        };
+        myChart.value.setOption(option);
+      }
+    }
+
+    const fetchData = async () => {
+      try {
+        // 假设后端 API 为 /api/pod-count 返回一个包含 podCount 属性的对象
+        const response = await axios.get('/api/pod-count');
+        const podCount = response.data.podCount;
+
+        if (myChart.value) {
+          myChart.value.setOption({
+            series: [{
+              data: [{
+                value: podCount,
+                name: 'Pod 数量'
+              }]
+            }]
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching Pod count:', error);
+      }
+    }
+
+    onMounted(() => {
+      initChart();
+      fetchData(); // 初始化时获取一次数据
+      setInterval(fetchData, 5000); // 每5秒更新一次数据
+    })
+</script>
+
+<style scoped>
+#main {
+  width: 100%;
+  height: 100%;
+}
+</style>

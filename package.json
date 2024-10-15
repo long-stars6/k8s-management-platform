@@ -1,5 +1,8 @@
 {
   "devDependencies": {
     "babel-plugin-component": "^1.1.1"
+  },
+  "dependencies": {
+    "echarts": "^5.5.1"
   }
 }

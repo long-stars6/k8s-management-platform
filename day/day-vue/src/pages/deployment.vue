@@ -51,6 +51,7 @@ onMounted(() => {
             { name: 'jenkins', namespace: 'app', pods: '1', ready: '1/1', time: '2024-09-28' },
             { name: 'jenkins', namespace: 'app', pods: '1', ready: '1/1', time: '2024-09-28' },
             { name: 'jenkins', namespace: 'app', pods: '1', ready: '1/1', time: '2024-09-28' },
+            { name: 'jenkins', namespace: 'app', pods: '1', ready: '1/1', time: '2024-09-28' },
           ];
           resolve(data);
         }, 3000);
