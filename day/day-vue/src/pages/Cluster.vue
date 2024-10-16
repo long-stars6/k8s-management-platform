@@ -1,4 +1,8 @@
 <template>
+  <iframe src="https://www.baidu.com" frameborder="0">
+    
+  </iframe>
+  
   <div id="main" ref="chartRef" style="width: 600px; height: 400px;"></div>
 </template>
 
