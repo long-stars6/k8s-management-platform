@@ -60,6 +60,7 @@ const toggleConfigDropdown = () => {
 
 .container {
   display: flex;
+  overflow-x: hidden; /* 防止水平滚动 */
 }
 
 .sidebar {
@@ -71,7 +72,8 @@ const toggleConfigDropdown = () => {
   position: fixed;
   top: 0;
   left: 0;
-  overflow: hidden; /* 防止溢出 */
+  overflow: hidden;
+  box-sizing: border-box; /* 确保内边距不会影响宽度 */
 }
 
 .sidebar h2 {
@@ -151,10 +153,12 @@ const toggleConfigDropdown = () => {
 }
 
 .content-area {
-  margin-left: 240px;
-  padding: 20px;
+  margin-left: 200px; /* 与 sidebar 宽度一致 */
+  padding: 10px;
   flex: 1;
   background-color: #f7f7f7;
+  overflow-x: hidden; /* 防止内容区域内部溢出 */
+  box-sizing: border-box; /* 确保内边距不会影响宽度 */
 }
 
 

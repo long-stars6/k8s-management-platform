@@ -26,7 +26,7 @@ const router = createRouter({
     {
       name: "cicd",
       path: "/cicd",
-      component: () => import('@/pages/cicd.vue')
+      component: () => import('@/pages/Cicd.vue')
     },
     {
       name: "volumes",

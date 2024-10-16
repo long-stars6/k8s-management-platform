@@ -11,10 +11,24 @@
   import Home from './pages/Home.vue';
   import Sidebar from './pages/saidebar.vue';
   import iii from './pages/iii.vue';
+  import deployment from './pages/deployment.vue';
+  import { ref } from 'vue';
+  
+
 </script>
 
 
 <style scoped>
+.iframe-container {
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+}
+iframe {
+  border: 1px solid #ccc;
+}
+
+/*----------------------------------*/
   .red{
     color: rgb(244, 243, 243);
     background-color: rgb(0, 0, 0);
