@@ -39,9 +39,14 @@ const router = createRouter({
       component: () => import('@/pages/alert.vue')
     },
     {
-      name: "logs",
-      path: "/logs",
-      component: () => import('@/pages/logs.vue')
+      path: '/logs/:name/:namespace',
+      name: 'logs',
+      component: () => import('@/pages/logs.vue'),
+    },
+    {
+      name: "services",
+      path: "/services",
+      component: () => import('@/pages/Services.vue')
     }
   ]
 })

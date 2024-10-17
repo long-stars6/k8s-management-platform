@@ -9,7 +9,7 @@
           <router-link to="/deployment">Pods 管理</router-link>
         </li>
 
-        <li><router-link to="/services">服务管理</router-link></li>
+        <li><router-link to="/services">网络服务</router-link></li>
         <li class="menu-item">
           <span @click="toggleDropdown" class="dropdown-toggle">持续集成部署</span>
           <transition name="expand">

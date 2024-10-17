@@ -3,6 +3,12 @@
     <p class="container-info-title">容器信息</p>
 
     <div class="actions">
+      <select class="namespace-selector" v-model="selectedNamespace" @change="refreshList">
+        <option value="">默认名称空间</option>
+        <option v-for="(ns, index) in namespaces" :key="index" :value="ns">
+          {{ ns }}
+        </option>
+      </select>
       <button class="btn add-container">添加容器</button>
       <button class="btn refresh" @click="refreshList">刷新列表</button>
     </div>
@@ -10,20 +16,24 @@
     <div class="info-header">
       <div class="info-item">名称</div>
       <div class="info-item">命名空间</div>
-      <div class="info-item">Pods</div>
-      <div class="info-item">就绪</div>
+      <div class="info-item">镜像</div>
+      <div class="info-item">状态</div>
       <div class="info-item">时间</div>
+      <div class="info-item">操作</div> 
     </div>
 
     <div class="infinite-scroll-container">
       <ul class="infinite-list">
         <li v-for="(item, index) in deps" :key="index" class="infinite-list-item">
           <div class="info-row">
-            <div class="info-item">{{ item.metadata.name }}</div>
-            <div class="info-item">{{ item.metadata.namespace }}</div>
-            <div class="info-item">{{ item.metadata.pods }}</div>
-            <div class="info-item">{{ item.metadata.ready }}</div>
-            <div class="info-item">{{ item.metadata.time }}</div>
+            <div class="info-item">{{ item?.name || '未知' }}</div>
+            <div class="info-item">{{ item?.namespace || '未知' }}</div>
+            <div class="info-item">{{ item?.image || '未知' }}</div>
+            <div class="info-item">{{ item?.status || '未知' }}</div>
+            <div class="info-item">{{ item?.time || '未知' }}</div>
+            <div class="info-item">
+              <button class="btn view-logs" @click="viewLogs(item.name, item.namespace)">查看日志</button>
+            </div>
           </div>
         </li>
       </ul>
@@ -35,24 +45,34 @@
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
+import { useRouter } from 'vue-router'; // 导入 useRouter
 
 interface Deployment {
-  metadata: {
-    name: string,
-    namespace: string,
-    pods: string,
-    ready: string,
-    time: string
-  };
+    name: string;
+    namespace: string;
+    image: string; // 改为 string
+    status: string;
+    time: string;
 }
 
-let num = ref(0);
 const deps = ref<Deployment[]>([]);
+const namespaces = ref<string[]>([]);
+const selectedNamespace = ref<string>('');
+const router = useRouter(); // 初始化 router
 
-const fetchPodsData = async () => {
+// 获取命名空间列表
+const fetchNamespaces = async () => {
   try {
-    const response = await axios.get<Deployment[]>('http://localhost:8080/api/pods');
-    num.value = response.data.length;
+    const response = await axios.get<string[]>('http://localhost:8080/api/namespaces');
+    namespaces.value = response.data;
+  } catch (error) {
+    console.error('获取命名空间失败:', error);
+  }
+};
+
+const fetchPodsData = async (namespace = '') => {
+  try {
+    const response = await axios.get<Deployment[]>(`http://localhost:8080/api/pods?namespace=${namespace}`);
     deps.value = response.data;
   } catch (error) {
     console.error('获取Pods信息失败:', error);
@@ -61,29 +81,49 @@ const fetchPodsData = async () => {
 };
 
 const refreshList = () => {
-  fetchPodsData();
+  fetchPodsData(selectedNamespace.value);
+};
+
+// 跳转到日志显示页面
+const viewLogs = (podName: string, namespace: string) => {
+  router.push({ name: 'logs', params: { name: podName, namespace } }); // 使用路由跳转到日志页面
 };
 
 onMounted(() => {
-  fetchPodsData();
+  fetchNamespaces(); // 获取命名空间列表
+  fetchPodsData();   // 获取默认命名空间的Pods
 });
 </script>
 
 <style scoped>
+.namespace-selector {
+  padding: 5px;
+  border-radius: 5px;
+  background-color: #2C2F36;
+  color: #E0E0E0;
+  border: 1px solid #3B3F47;
+  margin-right: 10px; /* 添加一些右边距 */
+}
+
 .container-info-title {
   margin: 20px 0;
   font-weight: bold;
   font-size: 1.2em;
 }
+
 .info-header, .info-row {
   display: flex;
   justify-content: space-between;
   padding: 10px 0;
+  align-items: center; /* 确保所有信息项在垂直方向上对齐 */
 }
+
 .info-item {
-  flex: 1;
+  flex: 1; /* 设置每个 item 的 flex 为 1 */
   text-align: center;
+  min-width: 120px; /* 添加一个最小宽度，确保一致性 */
 }
+
 .container-management-page {
   display: flex;
   flex-direction: column;
@@ -92,7 +132,7 @@ onMounted(() => {
   padding: 5px;
   border-radius: 10px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-  height: 90vh; /* 设置为视口高度的100% */
+  height: 90vh; /* 设置为视口高度的90% */
 }
 
 .actions {
@@ -100,6 +140,7 @@ onMounted(() => {
   justify-content: space-between;
   margin-bottom: 5px;
 }
+
 .btn {
   padding: 5px 10px;
   border: none;
@@ -107,14 +148,25 @@ onMounted(() => {
   cursor: pointer;
   font-size: 0.8em;
 }
+
 .add-container {
   background-color: #757575;
   color: #FFFFFF;
 }
+
 .refresh {
   background-color: #6A1B9A;
   color: #FFFFFF;
 }
+
+.view-logs {
+  background-color: #4CAF50; /* 按钮颜色 */
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
 .infinite-scroll-container {
   max-height: calc(100vh - 120px);
   overflow-y: auto;
@@ -123,11 +175,13 @@ onMounted(() => {
   background-color: #2C2F36;
   padding: 10px;
 }
+
 .infinite-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
+
 .infinite-list-item {
   padding: 20px;
   margin: 10px 0;
@@ -138,6 +192,7 @@ onMounted(() => {
   font-size: 1.1em;
   color: #E0E0E0;
 }
+
 .infinite-list-item:hover {
   background-color: #3A3D43;
 }
