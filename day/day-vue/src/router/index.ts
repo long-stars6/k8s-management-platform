@@ -47,7 +47,13 @@ const router = createRouter({
       name: "services",
       path: "/services",
       component: () => import('@/pages/Services.vue')
-    }
+    },
+    {
+      name: "alert",
+      path: "/alert",
+      component: () => import('@/pages/alert.vue')
+    },
+    
   ]
 })
 
