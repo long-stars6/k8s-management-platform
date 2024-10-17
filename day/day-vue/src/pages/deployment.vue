@@ -12,15 +12,15 @@
       <button class="btn add-container">添加容器</button>
       <button class="btn refresh" @click="refreshList">刷新列表</button>
     </div>
-
+    
     <div class="info-header">
       <div class="info-item">名称</div>
       <div class="info-item">命名空间</div>
-      <div class="info-item">镜像</div>
       <div class="info-item">状态</div>
       <div class="info-item">时间</div>
+      <div class="info-item">Pod IP</div> 
       <div class="info-item">操作</div> 
-    </div>
+  </div>
 
     <div class="infinite-scroll-container">
       <ul class="infinite-list">
@@ -28,16 +28,18 @@
           <div class="info-row">
             <div class="info-item">{{ item?.name || '未知' }}</div>
             <div class="info-item">{{ item?.namespace || '未知' }}</div>
-            <div class="info-item">{{ item?.image || '未知' }}</div>
             <div class="info-item">{{ item?.status || '未知' }}</div>
             <div class="info-item">{{ item?.time || '未知' }}</div>
+            <div class="info-item">{{ item?.podIp || '未知' }}</div>
             <div class="info-item">
-              <button class="btn view-logs" @click="viewLogs(item.name, item.namespace)">查看日志</button>
+              <button class="btn view-logs" @click="viewLogs(item.name, item.namespace)" aria-label="查看日志">查看日志</button>
             </div>
           </div>
         </li>
       </ul>
+      <p v-if="isLoading">加载中...</p>
       <p v-if="deps.length === 0">暂无数据</p>
+    
     </div>
   </div>
 </template>
@@ -50,9 +52,9 @@ import { useRouter } from 'vue-router'; // 导入 useRouter
 interface Deployment {
     name: string;
     namespace: string;
-    image: string; // 改为 string
     status: string;
     time: string;
+    podIp: string;
 }
 
 const deps = ref<Deployment[]>([]);
@@ -70,25 +72,37 @@ const fetchNamespaces = async () => {
   }
 };
 
+// 组件脚本部分
+const isLoading = ref<boolean>(false);
+
 const fetchPodsData = async (namespace = '') => {
+  isLoading.value = true; // 开始加载
   try {
     const response = await axios.get<Deployment[]>(`http://localhost:8080/api/pods?namespace=${namespace}`);
-    deps.value = response.data;
+    deps.value = response.data; 
   } catch (error) {
     console.error('获取Pods信息失败:', error);
     deps.value = [];
+  } finally {
+    isLoading.value = false; // 加载结束
   }
 };
+
+// 模板部分
+
 
 const refreshList = () => {
   fetchPodsData(selectedNamespace.value);
 };
 
 // 跳转到日志显示页面
-const viewLogs = (podName: string, namespace: string) => {
-  router.push({ name: 'logs', params: { name: podName, namespace } }); // 使用路由跳转到日志页面
+const viewLogs = (podName: string, namespace: string): void => {
+  // 调试日志
+  console.log(`Navigating to logs for pod: ${podName}, namespace: ${namespace}`);
+  
+  // 使用命名路由导航
+  router.push({ name: 'logs', params: { podName, namespace } });
 };
-
 onMounted(() => {
   fetchNamespaces(); // 获取命名空间列表
   fetchPodsData();   // 获取默认命名空间的Pods
