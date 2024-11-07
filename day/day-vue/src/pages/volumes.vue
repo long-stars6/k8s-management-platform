@@ -25,7 +25,6 @@
           { name: 'new-app-2', namespace: 'app', pods: '1', ready: '0/1', time: '2024-10-03' }
         );
       };
-  
       return { p, load };
     }
   });

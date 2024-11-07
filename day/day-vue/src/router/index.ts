@@ -45,6 +45,12 @@ const router = createRouter({
       props: true,
     },
     {
+      path: '/pod-detail/:podName/:namespace/:containerName',
+      name: 'pod-detail',
+      component: () => import('@/pages/PodDetail.vue'),
+      props: true,
+    },
+    {
       name: "services",
       path: "/services",
       component: () => import('@/pages/Services.vue')
@@ -54,7 +60,11 @@ const router = createRouter({
       path: "/alert",
       component: () => import('@/pages/alert.vue')
     },
-    
+    {
+      name: "terminal",
+      path: "/terminal/:podName/:namespace/:containerName",
+      component: () => import('@/pages/terminal.vue')
+    },    
   ]
 })
 

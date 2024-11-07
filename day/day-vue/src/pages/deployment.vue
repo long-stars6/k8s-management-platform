@@ -20,7 +20,7 @@
       <div class="info-item">时间</div>
       <div class="info-item">Pod IP</div> 
       <div class="info-item">操作</div> 
-  </div>
+    </div>
 
     <div class="infinite-scroll-container">
       <ul class="infinite-list">
@@ -33,13 +33,13 @@
             <div class="info-item">{{ item?.podIp || '未知' }}</div>
             <div class="info-item">
               <button class="btn view-logs" @click="viewLogs(item.name, item.namespace)" aria-label="查看日志">查看日志</button>
+              <button class="btn view-terminal" @click="viewTerminal(item.name, item.namespace, item.containers[0].name)" aria-label="查看终端">查看终端</button>
             </div>
           </div>
         </li>
       </ul>
       <p v-if="isLoading">加载中...</p>
       <p v-if="deps.length === 0">暂无数据</p>
-    
     </div>
   </div>
 </template>
@@ -80,6 +80,7 @@ const fetchPodsData = async (namespace = '') => {
   try {
     const response = await axios.get<Deployment[]>(`http://localhost:8080/api/pods?namespace=${namespace}`);
     deps.value = response.data; 
+    // console.log(response.data.podIp)
   } catch (error) {
     console.error('获取Pods信息失败:', error);
     deps.value = [];
@@ -88,9 +89,7 @@ const fetchPodsData = async (namespace = '') => {
   }
 };
 
-// 模板部分
-
-
+// 刷新列表
 const refreshList = () => {
   fetchPodsData(selectedNamespace.value);
 };
@@ -103,11 +102,22 @@ const viewLogs = (podName: string, namespace: string): void => {
   // 使用命名路由导航
   router.push({ name: 'logs', params: { podName, namespace } });
 };
+
+// 跳转到终端页面
+const viewTerminal = (podName: string, namespace: string, containerName: string): void => {
+  // 调试日志
+  console.log(`Navigating to terminal for pod: ${podName}, namespace: ${namespace}, containerName: ${containerName}`);
+  
+  // 使用命名路由导航到终端页面
+  router.push({ name: 'terminal', params: { podName, namespace, containerName    } });
+};
+
 onMounted(() => {
   fetchNamespaces(); // 获取命名空间列表
   fetchPodsData();   // 获取默认命名空间的Pods
 });
 </script>
+
 
 <style scoped>
 .namespace-selector {
@@ -175,6 +185,15 @@ onMounted(() => {
 
 .view-logs {
   background-color: #4CAF50; /* 按钮颜色 */
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* 新增终端按钮样式 */
+.view-terminal {
+  background-color: #2196F3; /* 终端按钮的背景颜色 */
   color: white;
   border: none;
   border-radius: 4px;
