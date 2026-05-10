@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>动态时空曲率 - 稀疏网格 + 增强纵深</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            color: #ffdd99;
+            padding: 10px 18px;
+            border-radius: 8px;
+            pointer-events: none;
+            z-index: 10;
+            font-size: 14px;
+            backdrop-filter: blur(6px);
+            border-left: 4px solid #ffaa44;
+            font-family: monospace;
+        }
+        #controls-tip {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.5);
+            color: #ccc;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        🌌 动态时空曲率 | 稀疏网格 | 增强纵深凹陷 | 行星引力阱实时形变
+    </div>
+    <div id="controls-tip">
+        🖱️ 鼠标拖拽旋转视角 | 右键平移 | 滚轮缩放
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+        // --- 初始化场景 ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x010118);
+        scene.fog = new THREE.FogExp2(0x010118, 0.008);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 200);
+        camera.position.set(14, 12, 18);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        const labelRenderer = new CSS2DRenderer();
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.domElement.style.position = 'absolute';
+        labelRenderer.domElement.style.top = '0px';
+        labelRenderer.domElement.style.left = '0px';
+        labelRenderer.domElement.style.pointerEvents = 'none';
+        document.body.appendChild(labelRenderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.rotateSpeed = 0.8;
+        controls.zoomSpeed = 1.2;
+        controls.panSpeed = 0.8;
+        controls.target.set(0, -0.2, 0);
+
+        // --- 行星数据 (轨道半径，大小，颜色，速度，引力深度和范围，初始角度) ---
+        // 增强纵深：深度数值加大（更凹），范围也略有增加
+        const planetsData = [
+            { name: '水星', radius: 2.0, size: 0.14, color: 0xbc9a6c, speed: 0.030, depth: -0.45, spread: 0.65, initialAngle: 0 },
+            { name: '金星', radius: 2.8, size: 0.16, color: 0xe6b800, speed: 0.021, depth: -0.50, spread: 0.70, initialAngle: 1.2 },
+            { name: '地球', radius: 3.6, size: 0.18, color: 0x4c9aff, speed: 0.017, depth: -0.52, spread: 0.75, initialAngle: 2.5 },
+            { name: '火星', radius: 4.3, size: 0.16, color: 0xcc6644, speed: 0.014, depth: -0.48, spread: 0.72, initialAngle: 3.8 },
+            { name: '木星', radius: 5.8, size: 0.44, color: 0xd8a27a, speed: 0.008, depth: -0.80, spread: 1.10, initialAngle: 1.8 },
+            { name: '土星', radius: 7.2, size: 0.40, color: 0xf2cd9b, speed: 0.006, depth: -0.72, spread: 1.05, initialAngle: 4.5 }
+        ];
+
+        // --- 曲面参数：稀疏网格 (降低细分，让网格线更清晰) ---
+        const widthSegments = 60;   // 之前140，现在60，网格更稀疏
+        const heightSegments = 60;
+        const sizeGrid = 16.0;      // 整体范围更大，显得纵深更深
+        
+        const geometry = new THREE.PlaneGeometry(sizeGrid, sizeGrid, widthSegments, heightSegments);
+        geometry.rotateX(-Math.PI / 2);
+        const originalPositions = geometry.attributes.position.array.slice();
+        const positions = geometry.attributes.position.array;
+
+        // 更新曲面高度函数 (基于当前行星位置)
+        function updateSurface(planetsPos) {
+            for (let i = 0; i < positions.length / 3; i++) {
+                const x = originalPositions[i*3];
+                const z = originalPositions[i*3+2];
+                let y = 0;
+                // 太阳固定凹陷 (中心大质量，深度加大)
+                const rSun = Math.sqrt(x*x + z*z);
+                y += -1.6 * Math.exp(-rSun*rSun / 2.2);
+                // 每个行星的引力阱 (高斯势)
+                for (let p of planetsPos) {
+                    const dx = x - p.x;
+                    const dz = z - p.z;
+                    const dist2 = dx*dx + dz*dz;
+                    const spread2 = p.spread * p.spread;
+                    y += p.depth * Math.exp(-dist2 / spread2);
+                }
+                // 极微小波纹 (静态)
+                y += 0.04 * Math.sin(x * 1.0) * Math.cos(z * 1.0);
+                positions[i*3+1] = y;
+            }
+            geometry.attributes.position.needsUpdate = true;
+            geometry.computeVertexNormals();
+        }
+
+        // 线框材质 (更亮一点的蓝色)
+        const wireframeMat = new THREE.MeshBasicMaterial({
+            color: 0x4c8eff,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.9
+        });
+        const curvatureSurface = new THREE.Mesh(geometry, wireframeMat);
+        scene.add(curvatureSurface);
+        
+        // 可选：添加边缘高亮线段 (不动态更新以节省性能，线框已够用)
+        const edgesGeo = new THREE.EdgesGeometry(geometry);
+        const edgesMat = new THREE.LineBasicMaterial({ color: 0x7aafff });
+        const edgesWire = new THREE.LineSegments(edgesGeo, edgesMat);
+        scene.add(edgesWire);
+        
+        // --- 太阳 (加大尺寸，增强视觉重量) ---
+        const sunGeometry = new THREE.SphereGeometry(0.85, 64, 64);
+        const sunMaterial = new THREE.MeshStandardMaterial({ color: 0xffaa66, emissive: 0x552200, emissiveIntensity: 0.9 });
+        const sunMesh = new THREE.Mesh(sunGeometry, sunMaterial);
+        sunMesh.position.set(0, -0.12, 0);
+        scene.add(sunMesh);
+        
+        // 光源
+        const sunLight = new THREE.PointLight(0xffaa66, 1.4, 35);
+        sunLight.position.set(0, 0.3, 0);
+        scene.add(sunLight);
+        const ambientLight = new THREE.AmbientLight(0x111122);
+        scene.add(ambientLight);
+        const fillLight = new THREE.DirectionalLight(0x88aaff, 0.7);
+        fillLight.position.set(2, 5, 3);
+        scene.add(fillLight);
+        
+        // --- 创建行星对象 ---
+        const planets = [];
+        
+        planetsData.forEach((data, idx) => {
+            const angle = data.initialAngle;
+            const x = Math.cos(angle) * data.radius;
+            const z = Math.sin(angle) * data.radius;
+            
+            const sphereGeo = new THREE.SphereGeometry(data.size, 48, 48);
+            const sphereMat = new THREE.MeshStandardMaterial({ color: data.color, emissive: 0x221100, emissiveIntensity: 0.1 });
+            const planet = new THREE.Mesh(sphereGeo, sphereMat);
+            planet.userData = { depth: data.depth, spread: data.spread };
+            scene.add(planet);
+            
+            const div = document.createElement('div');
+            div.textContent = data.name;
+            div.style.color = '#ffddbb';
+            div.style.fontSize = '12px';
+            div.style.fontWeight = 'bold';
+            div.style.background = 'rgba(0,0,0,0.5)';
+            div.style.padding = '2px 5px';
+            div.style.borderRadius = '12px';
+            div.style.border = '1px solid #88aaff';
+            const label = new CSS2DObject(div);
+            scene.add(label);
+            
+            planets.push({
+                mesh: planet,
+                label: label,
+                radius: data.radius,
+                speed: data.speed,
+                angle: angle,
+                depth: data.depth,
+                spread: data.spread,
+                name: data.name
+            });
+            
+            // 轨道线 (圆环)
+            const points = [];
+            const segments = 100;
+            for (let i = 0; i <= segments; i++) {
+                const ang = (i / segments) * Math.PI * 2;
+                const px = Math.cos(ang) * data.radius;
+                const pz = Math.sin(ang) * data.radius;
+                points.push(new THREE.Vector3(px, 0.05, pz));
+            }
+            const orbitGeo = new THREE.BufferGeometry().setFromPoints(points);
+            const orbitMatLine = new THREE.LineBasicMaterial({ color: 0x44aaff, transparent: true, opacity: 0.45 });
+            const orbitLine = new THREE.LineLoop(orbitGeo, orbitMatLine);
+            scene.add(orbitLine);
+        });
+        
+        // --- 动态粒子系统 (星尘) 数量适当增加 ---
+        const starCount = 3000;
+        const starGeo = new THREE.BufferGeometry();
+        const starPositions = new Float32Array(starCount * 3);
+        for (let i = 0; i < starCount; i++) {
+            const rad = 2.0 + Math.random() * 9.0;
+            const ang = Math.random() * Math.PI * 2;
+            const x = Math.cos(ang) * rad;
+            const z = Math.sin(ang) * rad;
+            starPositions[i*3] = x;
+            starPositions[i*3+1] = (Math.random() - 0.5) * 0.4 - 0.2;
+            starPositions[i*3+2] = z;
+        }
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        const starMat = new THREE.PointsMaterial({ color: 0xaaddff, size: 0.022, transparent: true, blending: THREE.AdditiveBlending });
+        const stars = new THREE.Points(starGeo, starMat);
+        scene.add(stars);
+        
+        // 外围大光环 (装饰)
+        const outerRingPoints = [];
+        const outerRad = 8.2;
+        for (let i = 0; i <= 180; i++) {
+            const ang = (i / 180) * Math.PI * 2;
+            const x = Math.cos(ang) * outerRad;
+            const z = Math.sin(ang) * outerRad;
+            outerRingPoints.push(new THREE.Vector3(x, 0.12, z));
+        }
+        const outerRingGeo = new THREE.BufferGeometry().setFromPoints(outerRingPoints);
+        const outerRingMat = new THREE.LineBasicMaterial({ color: 0x88aaff, transparent: true, opacity: 0.25 });
+        const outerRing = new THREE.LineLoop(outerRingGeo, outerRingMat);
+        scene.add(outerRing);
+        
+        // --- 动画循环：更新曲率和行星位置 ---
+        function getSurfaceHeightAt(x, z) {
+            // 双线性插值从positions数组获取高度
+            const half = sizeGrid / 2;
+            const u = (x + half) / sizeGrid;
+            const v = (z + half) / sizeGrid;
+            if (u < 0 || u > 1 || v < 0 || v > 1) return 0;
+            const width = widthSegments + 1;
+            const heightCount = heightSegments + 1;
+            const i = Math.floor(u * (width - 1));
+            const j = Math.floor(v * (heightCount - 1));
+            const i1 = Math.min(i+1, width-1);
+            const j1 = Math.min(j+1, heightCount-1);
+            const idx00 = (j * width + i) * 3;
+            const idx10 = (j * width + i1) * 3;
+            const idx01 = (j1 * width + i) * 3;
+            const idx11 = (j1 * width + i1) * 3;
+            const y00 = positions[idx00+1];
+            const y10 = positions[idx10+1];
+            const y01 = positions[idx01+1];
+            const y11 = positions[idx11+1];
+            const fu = (u - (i/(width-1))) / (1/(width-1));
+            const fv = (v - (j/(heightCount-1))) / (1/(heightCount-1));
+            const y0 = y00 * (1-fu) + y10 * fu;
+            const y1 = y01 * (1-fu) + y11 * fu;
+            return y0 * (1-fv) + y1 * fv;
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const planetsPos = [];
+            planets.forEach(planet => {
+                planet.angle += planet.speed * 0.55;
+                if (planet.angle > Math.PI * 2) planet.angle -= Math.PI * 2;
+                const x = Math.cos(planet.angle) * planet.radius;
+                const z = Math.sin(planet.angle) * planet.radius;
+                planet.mesh.userData.currentX = x;
+                planet.mesh.userData.currentZ = z;
+                planetsPos.push({
+                    x: x,
+                    z: z,
+                    depth: planet.depth,
+                    spread: planet.spread
+                });
+            });
+            
+            // 更新曲面
+            updateSurface(planetsPos);
+            
+            // 更新行星高度和标签
+            planets.forEach(planet => {
+                const x = planet.mesh.userData.currentX;
+                const z = planet.mesh.userData.currentZ;
+                let y = getSurfaceHeightAt(x, z);
+                planet.mesh.position.set(x, y + 0.12, z);
+                planet.label.position.set(x, y + 0.36, z);
+                planet.mesh.rotation.y += 0.02;
+            });
+            
+            sunMesh.rotation.y += 0.005;
+            stars.rotation.y += 0.0005;
+            
+            controls.update();
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+        }
+        
+        // 初始曲面计算
+        const initialPlanetsPos = planets.map(p => ({ x: Math.cos(p.angle)*p.radius, z: Math.sin(p.angle)*p.radius, depth: p.depth, spread: p.spread }));
+        updateSurface(initialPlanetsPos);
+        
+        animate();
+        
+        window.addEventListener('resize', onWindowResize);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        console.log('动态时空曲率 - 稀疏网格 + 纵深增强 | 行星引力阱实时跟随');
+    </script>
+</body>
+</html>
